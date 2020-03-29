@@ -26675,1051 +26675,7 @@ var ToxicityClassifier = function () {
 }();
 
 exports.ToxicityClassifier = ToxicityClassifier;
-},{"@tensorflow/tfjs-converter":"node_modules/@tensorflow/tfjs-converter/dist/tf-converter.esm.js","@tensorflow/tfjs-core":"node_modules/@tensorflow/tfjs-core/dist/tf-core.esm.js"}],"node_modules/@tensorflow/tfjs-core/dist/environment.js":[function(require,module,exports) {
-var global = arguments[3];
-"use strict";
-/**
- * @license
- * Copyright 2017 Google Inc. All Rights Reserved.
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- * =============================================================================
- */
-Object.defineProperty(exports, "__esModule", { value: true });
-// Expects flags from URL in the format ?tfjsflags=FLAG1:1,FLAG2:true.
-var TENSORFLOWJS_FLAGS_PREFIX = 'tfjsflags';
-/**
- * The environment contains evaluated flags as well as the registered platform.
- * This is always used as a global singleton and can be retrieved with
- * `tf.env()`.
- */
-/** @doc {heading: 'Environment'} */
-var Environment = /** @class */ (function () {
-    // tslint:disable-next-line: no-any
-    function Environment(global) {
-        this.global = global;
-        this.flags = {};
-        this.flagRegistry = {};
-        this.urlFlags = {};
-        this.populateURLFlags();
-    }
-    Environment.prototype.setPlatform = function (platformName, platform) {
-        if (this.platform != null) {
-            console.warn("Platform " + this.platformName + " has already been set. " +
-                ("Overwriting the platform with " + platform + "."));
-        }
-        this.platformName = platformName;
-        this.platform = platform;
-    };
-    Environment.prototype.registerFlag = function (flagName, evaluationFn, setHook) {
-        this.flagRegistry[flagName] = { evaluationFn: evaluationFn, setHook: setHook };
-        // Override the flag value from the URL. This has to happen here because the
-        // environment is initialized before flags get registered.
-        if (this.urlFlags[flagName] != null) {
-            var flagValue = this.urlFlags[flagName];
-            console.warn("Setting feature override from URL " + flagName + ": " + flagValue + ".");
-            this.set(flagName, flagValue);
-        }
-    };
-    Environment.prototype.get = function (flagName) {
-        if (flagName in this.flags) {
-            return this.flags[flagName];
-        }
-        this.flags[flagName] = this.evaluateFlag(flagName);
-        return this.flags[flagName];
-    };
-    Environment.prototype.getNumber = function (flagName) {
-        return this.get(flagName);
-    };
-    Environment.prototype.getBool = function (flagName) {
-        return this.get(flagName);
-    };
-    Environment.prototype.getFlags = function () {
-        return this.flags;
-    };
-    Object.defineProperty(Environment.prototype, "features", {
-        // For backwards compatibility.
-        get: function () {
-            return this.flags;
-        },
-        enumerable: true,
-        configurable: true
-    });
-    Environment.prototype.set = function (flagName, value) {
-        if (this.flagRegistry[flagName] == null) {
-            throw new Error("Cannot set flag " + flagName + " as it has not been registered.");
-        }
-        this.flags[flagName] = value;
-        if (this.flagRegistry[flagName].setHook != null) {
-            this.flagRegistry[flagName].setHook(value);
-        }
-    };
-    Environment.prototype.evaluateFlag = function (flagName) {
-        if (this.flagRegistry[flagName] == null) {
-            throw new Error("Cannot evaluate flag '" + flagName + "': no evaluation function found.");
-        }
-        return this.flagRegistry[flagName].evaluationFn();
-    };
-    Environment.prototype.setFlags = function (flags) {
-        this.flags = Object.assign({}, flags);
-    };
-    Environment.prototype.reset = function () {
-        this.flags = {};
-        this.urlFlags = {};
-        this.populateURLFlags();
-    };
-    Environment.prototype.populateURLFlags = function () {
-        var _this = this;
-        if (typeof this.global === 'undefined' ||
-            typeof this.global.location === 'undefined' ||
-            typeof this.global.location.search === 'undefined') {
-            return;
-        }
-        var urlParams = getQueryParams(this.global.location.search);
-        if (TENSORFLOWJS_FLAGS_PREFIX in urlParams) {
-            var keyValues = urlParams[TENSORFLOWJS_FLAGS_PREFIX].split(',');
-            keyValues.forEach(function (keyValue) {
-                var _a = keyValue.split(':'), key = _a[0], value = _a[1];
-                _this.urlFlags[key] = parseValue(key, value);
-            });
-        }
-    };
-    return Environment;
-}());
-exports.Environment = Environment;
-function getQueryParams(queryString) {
-    var params = {};
-    queryString.replace(/[?&]([^=?&]+)(?:=([^&]*))?/g, function (s) {
-        var t = [];
-        for (var _i = 1; _i < arguments.length; _i++) {
-            t[_i - 1] = arguments[_i];
-        }
-        decodeParam(params, t[0], t[1]);
-        return t.join('=');
-    });
-    return params;
-}
-exports.getQueryParams = getQueryParams;
-function decodeParam(params, name, value) {
-    params[decodeURIComponent(name)] = decodeURIComponent(value || '');
-}
-function parseValue(flagName, value) {
-    value = value.toLowerCase();
-    if (value === 'true' || value === 'false') {
-        return value === 'true';
-    }
-    else if ("" + +value === value) {
-        return +value;
-    }
-    throw new Error("Could not parse value flag value " + value + " for flag " + flagName + ".");
-}
-/**
- * Returns the current environment (a global singleton).
- *
- * The environment object contains the evaluated feature values as well as the
- * active platform.
- */
-/** @doc {heading: 'Environment'} */
-function env() {
-    return exports.ENV;
-}
-exports.env = env;
-exports.ENV = null;
-function setEnvironmentGlobal(environment) {
-    exports.ENV = environment;
-}
-exports.setEnvironmentGlobal = setEnvironmentGlobal;
-
-},{}],"node_modules/@tensorflow/tfjs-core/dist/util.js":[function(require,module,exports) {
-"use strict";
-/**
- * @license
- * Copyright 2017 Google Inc. All Rights Reserved.
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- * =============================================================================
- */
-Object.defineProperty(exports, "__esModule", { value: true });
-var environment_1 = require("./environment");
-/**
- * Shuffles the array in-place using Fisher-Yates algorithm.
- *
- * ```js
- * const a = [1, 2, 3, 4, 5];
- * tf.util.shuffle(a);
- * console.log(a);
- * ```
- *
- * @param array The array to shuffle in-place.
- */
-/** @doc {heading: 'Util', namespace: 'util'} */
-// tslint:disable-next-line:no-any
-function shuffle(array) {
-    var counter = array.length;
-    var temp = 0;
-    var index = 0;
-    // While there are elements in the array
-    while (counter > 0) {
-        // Pick a random index
-        index = (Math.random() * counter) | 0;
-        // Decrease counter by 1
-        counter--;
-        // And swap the last element with it
-        temp = array[counter];
-        array[counter] = array[index];
-        array[index] = temp;
-    }
-}
-exports.shuffle = shuffle;
-/** Clamps a value to a specified range. */
-function clamp(min, x, max) {
-    return Math.max(min, Math.min(x, max));
-}
-exports.clamp = clamp;
-function nearestLargerEven(val) {
-    return val % 2 === 0 ? val : val + 1;
-}
-exports.nearestLargerEven = nearestLargerEven;
-function sum(arr) {
-    var sum = 0;
-    for (var i = 0; i < arr.length; i++) {
-        sum += arr[i];
-    }
-    return sum;
-}
-exports.sum = sum;
-/**
- * Returns a sample from a uniform [a, b) distribution.
- *
- * @param a The minimum support (inclusive).
- * @param b The maximum support (exclusive).
- * @return A pseudorandom number on the half-open interval [a,b).
- */
-function randUniform(a, b) {
-    var r = Math.random();
-    return (b * r) + (1 - r) * a;
-}
-exports.randUniform = randUniform;
-/** Returns the squared Euclidean distance between two vectors. */
-function distSquared(a, b) {
-    var result = 0;
-    for (var i = 0; i < a.length; i++) {
-        var diff = Number(a[i]) - Number(b[i]);
-        result += diff * diff;
-    }
-    return result;
-}
-exports.distSquared = distSquared;
-/**
- * Asserts that the expression is true. Otherwise throws an error with the
- * provided message.
- *
- * ```js
- * const x = 2;
- * tf.util.assert(x === 2, 'x is not 2');
- * ```
- *
- * @param expr The expression to assert (as a boolean).
- * @param msg A function that returns the message to report when throwing an
- *     error. We use a function for performance reasons.
- */
-/** @doc {heading: 'Util', namespace: 'util'} */
-function assert(expr, msg) {
-    if (!expr) {
-        throw new Error(typeof msg === 'string' ? msg : msg());
-    }
-}
-exports.assert = assert;
-function assertShapesMatch(shapeA, shapeB, errorMessagePrefix) {
-    if (errorMessagePrefix === void 0) { errorMessagePrefix = ''; }
-    assert(arraysEqual(shapeA, shapeB), function () { return errorMessagePrefix + (" Shapes " + shapeA + " and " + shapeB + " must match"); });
-}
-exports.assertShapesMatch = assertShapesMatch;
-function assertNonNull(a) {
-    assert(a != null, function () { return "The input to the tensor constructor must be a non-null value."; });
-}
-exports.assertNonNull = assertNonNull;
-// NOTE: We explicitly type out what T extends instead of any so that
-// util.flatten on a nested array of number doesn't try to infer T as a
-// number[][], causing us to explicitly type util.flatten<number>().
-/**
- *  Flattens an arbitrarily nested array.
- *
- * ```js
- * const a = [[1, 2], [3, 4], [5, [6, [7]]]];
- * const flat = tf.util.flatten(a);
- * console.log(flat);
- * ```
- *
- *  @param arr The nested array to flatten.
- *  @param result The destination array which holds the elements.
- *  @param skipTypedArray If true, avoids flattening the typed arrays. Defaults
- *      to false.
- */
-/** @doc {heading: 'Util', namespace: 'util'} */
-function flatten(arr, result, skipTypedArray) {
-    if (result === void 0) { result = []; }
-    if (skipTypedArray === void 0) { skipTypedArray = false; }
-    if (result == null) {
-        result = [];
-    }
-    if (Array.isArray(arr) || isTypedArray(arr) && !skipTypedArray) {
-        for (var i = 0; i < arr.length; ++i) {
-            flatten(arr[i], result, skipTypedArray);
-        }
-    }
-    else {
-        result.push(arr);
-    }
-    return result;
-}
-exports.flatten = flatten;
-/**
- * Returns the size (number of elements) of the tensor given its shape.
- *
- * ```js
- * const shape = [3, 4, 2];
- * const size = tf.util.sizeFromShape(shape);
- * console.log(size);
- * ```
- */
-/** @doc {heading: 'Util', namespace: 'util'} */
-function sizeFromShape(shape) {
-    if (shape.length === 0) {
-        // Scalar.
-        return 1;
-    }
-    var size = shape[0];
-    for (var i = 1; i < shape.length; i++) {
-        size *= shape[i];
-    }
-    return size;
-}
-exports.sizeFromShape = sizeFromShape;
-function isScalarShape(shape) {
-    return shape.length === 0;
-}
-exports.isScalarShape = isScalarShape;
-function arraysEqual(n1, n2) {
-    if (n1 === n2) {
-        return true;
-    }
-    if (n1 == null || n2 == null) {
-        return false;
-    }
-    if (n1.length !== n2.length) {
-        return false;
-    }
-    for (var i = 0; i < n1.length; i++) {
-        if (n1[i] !== n2[i]) {
-            return false;
-        }
-    }
-    return true;
-}
-exports.arraysEqual = arraysEqual;
-function isInt(a) {
-    return a % 1 === 0;
-}
-exports.isInt = isInt;
-function tanh(x) {
-    // tslint:disable-next-line:no-any
-    if (Math.tanh != null) {
-        // tslint:disable-next-line:no-any
-        return Math.tanh(x);
-    }
-    if (x === Infinity) {
-        return 1;
-    }
-    else if (x === -Infinity) {
-        return -1;
-    }
-    else {
-        var e2x = Math.exp(2 * x);
-        return (e2x - 1) / (e2x + 1);
-    }
-}
-exports.tanh = tanh;
-function sizeToSquarishShape(size) {
-    var width = Math.ceil(Math.sqrt(size));
-    return [width, Math.ceil(size / width)];
-}
-exports.sizeToSquarishShape = sizeToSquarishShape;
-/**
- * Creates a new array with randomized indicies to a given quantity.
- *
- * ```js
- * const randomTen = tf.util.createShuffledIndices(10);
- * console.log(randomTen);
- * ```
- *
- * @param number Quantity of how many shuffled indicies to create.
- */
-/** @doc {heading: 'Util', namespace: 'util'} */
-function createShuffledIndices(n) {
-    var shuffledIndices = new Uint32Array(n);
-    for (var i = 0; i < n; ++i) {
-        shuffledIndices[i] = i;
-    }
-    shuffle(shuffledIndices);
-    return shuffledIndices;
-}
-exports.createShuffledIndices = createShuffledIndices;
-function rightPad(a, size) {
-    if (size <= a.length) {
-        return a;
-    }
-    return a + ' '.repeat(size - a.length);
-}
-exports.rightPad = rightPad;
-function repeatedTry(checkFn, delayFn, maxCounter) {
-    if (delayFn === void 0) { delayFn = function (counter) { return 0; }; }
-    return new Promise(function (resolve, reject) {
-        var tryCount = 0;
-        var tryFn = function () {
-            if (checkFn()) {
-                resolve();
-                return;
-            }
-            tryCount++;
-            var nextBackoff = delayFn(tryCount);
-            if (maxCounter != null && tryCount >= maxCounter) {
-                reject();
-                return;
-            }
-            setTimeout(tryFn, nextBackoff);
-        };
-        tryFn();
-    });
-}
-exports.repeatedTry = repeatedTry;
-/**
- * Given the full size of the array and a shape that may contain -1 as the
- * implicit dimension, returns the inferred shape where -1 is replaced.
- * E.g. For shape=[2, -1, 3] and size=24, it will return [2, 4, 3].
- *
- * @param shape The shape, which may contain -1 in some dimension.
- * @param size The full size (number of elements) of the array.
- * @return The inferred shape where -1 is replaced with the inferred size.
- */
-function inferFromImplicitShape(shape, size) {
-    var shapeProd = 1;
-    var implicitIdx = -1;
-    for (var i = 0; i < shape.length; ++i) {
-        if (shape[i] >= 0) {
-            shapeProd *= shape[i];
-        }
-        else if (shape[i] === -1) {
-            if (implicitIdx !== -1) {
-                throw Error("Shapes can only have 1 implicit size. " +
-                    ("Found -1 at dim " + implicitIdx + " and dim " + i));
-            }
-            implicitIdx = i;
-        }
-        else if (shape[i] < 0) {
-            throw Error("Shapes can not be < 0. Found " + shape[i] + " at dim " + i);
-        }
-    }
-    if (implicitIdx === -1) {
-        if (size > 0 && size !== shapeProd) {
-            throw Error("Size(" + size + ") must match the product of shape " + shape);
-        }
-        return shape;
-    }
-    if (shapeProd === 0) {
-        throw Error("Cannot infer the missing size in [" + shape + "] when " +
-            "there are 0 elements");
-    }
-    if (size % shapeProd !== 0) {
-        throw Error("The implicit shape can't be a fractional number. " +
-            ("Got " + size + " / " + shapeProd));
-    }
-    var newShape = shape.slice();
-    newShape[implicitIdx] = size / shapeProd;
-    return newShape;
-}
-exports.inferFromImplicitShape = inferFromImplicitShape;
-function parseAxisParam(axis, shape) {
-    var rank = shape.length;
-    // Normalize input
-    axis = axis == null ? shape.map(function (s, i) { return i; }) : [].concat(axis);
-    // Check for valid range
-    assert(axis.every(function (ax) { return ax >= -rank && ax < rank; }), function () {
-        return "All values in axis param must be in range [-" + rank + ", " + rank + ") but " +
-            ("got axis " + axis);
-    });
-    // Check for only integers
-    assert(axis.every(function (ax) { return isInt(ax); }), function () { return "All values in axis param must be integers but " +
-        ("got axis " + axis); });
-    // Handle negative axis.
-    return axis.map(function (a) { return a < 0 ? rank + a : a; });
-}
-exports.parseAxisParam = parseAxisParam;
-/** Reduces the shape by removing all dimensions of shape 1. */
-function squeezeShape(shape, axis) {
-    var newShape = [];
-    var keptDims = [];
-    var isEmptyArray = axis != null && Array.isArray(axis) && axis.length === 0;
-    var axes = (axis == null || isEmptyArray) ?
-        null :
-        parseAxisParam(axis, shape).sort();
-    var j = 0;
-    for (var i = 0; i < shape.length; ++i) {
-        if (axes != null) {
-            if (axes[j] === i && shape[i] !== 1) {
-                throw new Error("Can't squeeze axis " + i + " since its dim '" + shape[i] + "' is not 1");
-            }
-            if ((axes[j] == null || axes[j] > i) && shape[i] === 1) {
-                newShape.push(shape[i]);
-                keptDims.push(i);
-            }
-            if (axes[j] <= i) {
-                j++;
-            }
-        }
-        if (shape[i] !== 1) {
-            newShape.push(shape[i]);
-            keptDims.push(i);
-        }
-    }
-    return { newShape: newShape, keptDims: keptDims };
-}
-exports.squeezeShape = squeezeShape;
-function getTypedArrayFromDType(dtype, size) {
-    var values = null;
-    if (dtype == null || dtype === 'float32') {
-        values = new Float32Array(size);
-    }
-    else if (dtype === 'int32') {
-        values = new Int32Array(size);
-    }
-    else if (dtype === 'bool') {
-        values = new Uint8Array(size);
-    }
-    else {
-        throw new Error("Unknown data type " + dtype);
-    }
-    return values;
-}
-exports.getTypedArrayFromDType = getTypedArrayFromDType;
-function getArrayFromDType(dtype, size) {
-    var values = null;
-    if (dtype == null || dtype === 'float32') {
-        values = new Float32Array(size);
-    }
-    else if (dtype === 'int32') {
-        values = new Int32Array(size);
-    }
-    else if (dtype === 'bool') {
-        values = new Uint8Array(size);
-    }
-    else if (dtype === 'string') {
-        values = new Array(size);
-    }
-    else {
-        throw new Error("Unknown data type " + dtype);
-    }
-    return values;
-}
-exports.getArrayFromDType = getArrayFromDType;
-function checkConversionForErrors(vals, dtype) {
-    for (var i = 0; i < vals.length; i++) {
-        var num = vals[i];
-        if (isNaN(num) || !isFinite(num)) {
-            throw Error("A tensor of type " + dtype + " being uploaded contains " + num + ".");
-        }
-    }
-}
-exports.checkConversionForErrors = checkConversionForErrors;
-/** Returns true if the dtype is valid. */
-function isValidDtype(dtype) {
-    return dtype === 'bool' || dtype === 'complex64' || dtype === 'float32' ||
-        dtype === 'int32' || dtype === 'string';
-}
-exports.isValidDtype = isValidDtype;
-/**
- * Returns true if the new type can't encode the old type without loss of
- * precision.
- */
-function hasEncodingLoss(oldType, newType) {
-    if (newType === 'complex64') {
-        return false;
-    }
-    if (newType === 'float32' && oldType !== 'complex64') {
-        return false;
-    }
-    if (newType === 'int32' && oldType !== 'float32' && oldType !== 'complex64') {
-        return false;
-    }
-    if (newType === 'bool' && oldType === 'bool') {
-        return false;
-    }
-    return true;
-}
-exports.hasEncodingLoss = hasEncodingLoss;
-function isTypedArray(a) {
-    return a instanceof Float32Array || a instanceof Int32Array ||
-        a instanceof Uint8Array;
-}
-exports.isTypedArray = isTypedArray;
-function bytesPerElement(dtype) {
-    if (dtype === 'float32' || dtype === 'int32') {
-        return 4;
-    }
-    else if (dtype === 'complex64') {
-        return 8;
-    }
-    else if (dtype === 'bool') {
-        return 1;
-    }
-    else {
-        throw new Error("Unknown dtype " + dtype);
-    }
-}
-exports.bytesPerElement = bytesPerElement;
-/**
- * Returns the approximate number of bytes allocated in the string array - 2
- * bytes per character. Computing the exact bytes for a native string in JS is
- * not possible since it depends on the encoding of the html page that serves
- * the website.
- */
-function bytesFromStringArray(arr) {
-    if (arr == null) {
-        return 0;
-    }
-    var bytes = 0;
-    arr.forEach(function (x) { return bytes += x.length; });
-    return bytes;
-}
-exports.bytesFromStringArray = bytesFromStringArray;
-/** Returns true if the value is a string. */
-function isString(value) {
-    return typeof value === 'string' || value instanceof String;
-}
-exports.isString = isString;
-function isBoolean(value) {
-    return typeof value === 'boolean';
-}
-exports.isBoolean = isBoolean;
-function isNumber(value) {
-    return typeof value === 'number';
-}
-exports.isNumber = isNumber;
-function inferDtype(values) {
-    if (Array.isArray(values)) {
-        return inferDtype(values[0]);
-    }
-    if (values instanceof Float32Array) {
-        return 'float32';
-    }
-    else if (values instanceof Int32Array || values instanceof Uint8Array) {
-        return 'int32';
-    }
-    else if (isNumber(values)) {
-        return 'float32';
-    }
-    else if (isString(values)) {
-        return 'string';
-    }
-    else if (isBoolean(values)) {
-        return 'bool';
-    }
-    return 'float32';
-}
-exports.inferDtype = inferDtype;
-function isFunction(f) {
-    return !!(f && f.constructor && f.call && f.apply);
-}
-exports.isFunction = isFunction;
-function nearestDivisor(size, start) {
-    for (var i = start; i < size; ++i) {
-        if (size % i === 0) {
-            return i;
-        }
-    }
-    return size;
-}
-exports.nearestDivisor = nearestDivisor;
-function computeStrides(shape) {
-    var rank = shape.length;
-    if (rank < 2) {
-        return [];
-    }
-    // Last dimension has implicit stride of 1, thus having D-1 (instead of D)
-    // strides.
-    var strides = new Array(rank - 1);
-    strides[rank - 2] = shape[rank - 1];
-    for (var i = rank - 3; i >= 0; --i) {
-        strides[i] = strides[i + 1] * shape[i + 1];
-    }
-    return strides;
-}
-exports.computeStrides = computeStrides;
-function toTypedArray(a, dtype, debugMode) {
-    if (dtype === 'string') {
-        throw new Error('Cannot convert a string[] to a TypedArray');
-    }
-    if (Array.isArray(a)) {
-        a = flatten(a);
-    }
-    if (debugMode) {
-        checkConversionForErrors(a, dtype);
-    }
-    if (noConversionNeeded(a, dtype)) {
-        return a;
-    }
-    if (dtype == null || dtype === 'float32' || dtype === 'complex64') {
-        return new Float32Array(a);
-    }
-    else if (dtype === 'int32') {
-        return new Int32Array(a);
-    }
-    else if (dtype === 'bool') {
-        var bool = new Uint8Array(a.length);
-        for (var i = 0; i < bool.length; ++i) {
-            if (Math.round(a[i]) !== 0) {
-                bool[i] = 1;
-            }
-        }
-        return bool;
-    }
-    else {
-        throw new Error("Unknown data type " + dtype);
-    }
-}
-exports.toTypedArray = toTypedArray;
-function createNestedArray(offset, shape, a) {
-    var ret = new Array();
-    if (shape.length === 1) {
-        var d = shape[0];
-        for (var i = 0; i < d; i++) {
-            ret[i] = a[offset + i];
-        }
-    }
-    else {
-        var d = shape[0];
-        var rest = shape.slice(1);
-        var len = rest.reduce(function (acc, c) { return acc * c; });
-        for (var i = 0; i < d; i++) {
-            ret[i] = createNestedArray(offset + i * len, rest, a);
-        }
-    }
-    return ret;
-}
-// Provide a nested array of TypedArray in given shape.
-function toNestedArray(shape, a) {
-    if (shape.length === 0) {
-        // Scalar type should return a single number.
-        return a[0];
-    }
-    var size = shape.reduce(function (acc, c) { return acc * c; });
-    if (size === 0) {
-        // A tensor with shape zero should be turned into empty list.
-        return [];
-    }
-    if (size !== a.length) {
-        throw new Error("[" + shape + "] does not match the input size.");
-    }
-    return createNestedArray(0, shape, a);
-}
-exports.toNestedArray = toNestedArray;
-function noConversionNeeded(a, dtype) {
-    return (a instanceof Float32Array && dtype === 'float32') ||
-        (a instanceof Int32Array && dtype === 'int32') ||
-        (a instanceof Uint8Array && dtype === 'bool');
-}
-function makeOnesTypedArray(size, dtype) {
-    var array = makeZerosTypedArray(size, dtype);
-    for (var i = 0; i < array.length; i++) {
-        array[i] = 1;
-    }
-    return array;
-}
-exports.makeOnesTypedArray = makeOnesTypedArray;
-function makeZerosTypedArray(size, dtype) {
-    if (dtype == null || dtype === 'float32' || dtype === 'complex64') {
-        return new Float32Array(size);
-    }
-    else if (dtype === 'int32') {
-        return new Int32Array(size);
-    }
-    else if (dtype === 'bool') {
-        return new Uint8Array(size);
-    }
-    else {
-        throw new Error("Unknown data type " + dtype);
-    }
-}
-exports.makeZerosTypedArray = makeZerosTypedArray;
-/**
- * Returns the current high-resolution time in milliseconds relative to an
- * arbitrary time in the past. It works across different platforms (node.js,
- * browsers).
- *
- * ```js
- * console.log(tf.util.now());
- * ```
- */
-/** @doc {heading: 'Util', namespace: 'util'} */
-function now() {
-    return environment_1.env().platform.now();
-}
-exports.now = now;
-function assertNonNegativeIntegerDimensions(shape) {
-    shape.forEach(function (dimSize) {
-        assert(Number.isInteger(dimSize) && dimSize >= 0, function () {
-            return "Tensor must have a shape comprised of positive integers but got " +
-                ("shape [" + shape + "].");
-        });
-    });
-}
-exports.assertNonNegativeIntegerDimensions = assertNonNegativeIntegerDimensions;
-/**
- * Returns a platform-specific implementation of
- * [`fetch`](https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API).
- *
- * If `fetch` is defined on the global object (`window`, `process`, etc.),
- * `tf.util.fetch` returns that function.
- *
- * If not, `tf.util.fetch` returns a platform-specific solution.
- *
- * ```js
- * const resource = await tf.util.fetch('https://unpkg.com/@tensorflow/tfjs');
- * // handle response
- * ```
- */
-/** @doc {heading: 'Util'} */
-function fetch(path, requestInits) {
-    return environment_1.env().platform.fetch(path, requestInits);
-}
-exports.fetch = fetch;
-/**
- * Encodes the provided string into bytes using the provided encoding scheme.
- *
- * @param s The string to encode.
- * @param encoding The encoding scheme. Defaults to utf-8.
- *
- */
-/** @doc {heading: 'Util'} */
-function encodeString(s, encoding) {
-    if (encoding === void 0) { encoding = 'utf-8'; }
-    encoding = encoding || 'utf-8';
-    return environment_1.env().platform.encode(s, encoding);
-}
-exports.encodeString = encodeString;
-/**
- * Decodes the provided bytes into a string using the provided encoding scheme.
- * @param bytes The bytes to decode.
- *
- * @param encoding The encoding scheme. Defaults to utf-8.
- */
-/** @doc {heading: 'Util'} */
-function decodeString(bytes, encoding) {
-    if (encoding === void 0) { encoding = 'utf-8'; }
-    encoding = encoding || 'utf-8';
-    return environment_1.env().platform.decode(bytes, encoding);
-}
-exports.decodeString = decodeString;
-
-},{"./environment":"node_modules/@tensorflow/tfjs-core/dist/environment.js"}],"node_modules/@tensorflow/tfjs-core/dist/backends/webgl/tex_util.js":[function(require,module,exports) {
-"use strict";
-/**
- * @license
- * Copyright 2017 Google Inc. All Rights Reserved.
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- * =============================================================================
- */
-Object.defineProperty(exports, "__esModule", { value: true });
-var environment_1 = require("../../environment");
-var util = require("../../util");
-var PackingScheme;
-(function (PackingScheme) {
-    /**
-     * All values in a single texel are densely packed without any constraints.
-     *
-     * This is how the shader encodes a tensor with shape = [2, 3, 4]
-     * (indices are [batch, row, col]).
-     *
-     * 000|001   010|011   020|021
-     * -------   -------   -------
-     * 002|003   012|013   022|023
-     *
-     * 100|101   110|111   120|121
-     * -------   -------   -------
-     * 102|103   112|113   122|123
-     *
-     */
-    PackingScheme[PackingScheme["DENSE"] = 0] = "DENSE";
-    /**
-     * Single texels contain only values from the same batch, and from adjacent
-     * rows and columns.
-     *
-     * This is how the shader encodes a tensor with shape = [2, 3, 5]
-     * (indices are [batch, row, col]).
-     *
-     * 000|001   002|003   004|xxx   020|021   022|023   024|xxx
-     * -------   -------   -------   -------   -------   -------
-     * 010|011   012|013   014|xxx   xxx|xxx   xxx|xxx   xxx|xxx
-     *
-     * 100|101   102|103   104|xxx   120|121   122|123   124|xxx
-     * -------   -------   -------   -------   -------   -------
-     * 110|111   112|113   114|xxx   xxx|xxx   xxx|xxx   xxx|xxx
-     *
-     */
-    PackingScheme[PackingScheme["SHARED_BATCH"] = 1] = "SHARED_BATCH";
-})(PackingScheme = exports.PackingScheme || (exports.PackingScheme = {}));
-var TextureUsage;
-(function (TextureUsage) {
-    TextureUsage[TextureUsage["RENDER"] = 0] = "RENDER";
-    TextureUsage[TextureUsage["UPLOAD"] = 1] = "UPLOAD";
-    TextureUsage[TextureUsage["PIXELS"] = 2] = "PIXELS";
-    TextureUsage[TextureUsage["DOWNLOAD"] = 3] = "DOWNLOAD";
-})(TextureUsage = exports.TextureUsage || (exports.TextureUsage = {}));
-var PhysicalTextureType;
-(function (PhysicalTextureType) {
-    PhysicalTextureType[PhysicalTextureType["UNPACKED_FLOAT16"] = 0] = "UNPACKED_FLOAT16";
-    PhysicalTextureType[PhysicalTextureType["UNPACKED_FLOAT32"] = 1] = "UNPACKED_FLOAT32";
-    PhysicalTextureType[PhysicalTextureType["PACKED_4X1_UNSIGNED_BYTE"] = 2] = "PACKED_4X1_UNSIGNED_BYTE";
-    PhysicalTextureType[PhysicalTextureType["PACKED_2X2_FLOAT32"] = 3] = "PACKED_2X2_FLOAT32";
-    PhysicalTextureType[PhysicalTextureType["PACKED_2X2_FLOAT16"] = 4] = "PACKED_2X2_FLOAT16";
-})(PhysicalTextureType = exports.PhysicalTextureType || (exports.PhysicalTextureType = {}));
-function getUnpackedMatrixTextureShapeWidthHeight(rows, columns) {
-    return [columns, rows];
-}
-exports.getUnpackedMatrixTextureShapeWidthHeight = getUnpackedMatrixTextureShapeWidthHeight;
-function getUnpackedArraySizeFromMatrixSize(matrixSize, channelsPerTexture) {
-    return matrixSize * channelsPerTexture;
-}
-exports.getUnpackedArraySizeFromMatrixSize = getUnpackedArraySizeFromMatrixSize;
-function getColorMatrixTextureShapeWidthHeight(rows, columns) {
-    return [columns * 4, rows];
-}
-exports.getColorMatrixTextureShapeWidthHeight = getColorMatrixTextureShapeWidthHeight;
-/**
- * Get shape for densely packed RGBA texture.
- */
-function getDenseTexShape(shape) {
-    var size = util.sizeFromShape(shape);
-    var texelsNeeded = Math.ceil(size / 4);
-    return util.sizeToSquarishShape(texelsNeeded);
-}
-exports.getDenseTexShape = getDenseTexShape;
-function getMatrixSizeFromUnpackedArraySize(unpackedSize, channelsPerTexture) {
-    if (unpackedSize % channelsPerTexture !== 0) {
-        throw new Error("unpackedSize (" + unpackedSize + ") must be a multiple of " +
-            ("" + channelsPerTexture));
-    }
-    return unpackedSize / channelsPerTexture;
-}
-exports.getMatrixSizeFromUnpackedArraySize = getMatrixSizeFromUnpackedArraySize;
-function decodeMatrixFromUnpackedColorRGBAArray(unpackedArray, matrix, channels) {
-    var requiredSize = unpackedArray.length * channels / 4;
-    if (matrix.length < requiredSize) {
-        throw new Error("matrix length (" + matrix.length + ") must be >= " + requiredSize);
-    }
-    var dst = 0;
-    for (var src = 0; src < unpackedArray.length; src += 4) {
-        for (var c = 0; c < channels; c++) {
-            matrix[dst++] = unpackedArray[src + c];
-        }
-    }
-}
-exports.decodeMatrixFromUnpackedColorRGBAArray = decodeMatrixFromUnpackedColorRGBAArray;
-function getPackedMatrixTextureShapeWidthHeight(rows, columns) {
-    return [
-        Math.max(1, Math.ceil(columns / 2)), Math.max(1, Math.ceil(rows / 2))
-    ];
-}
-exports.getPackedMatrixTextureShapeWidthHeight = getPackedMatrixTextureShapeWidthHeight;
-function getPackedRGBAArraySizeFromMatrixShape(rows, columns) {
-    var _a = getPackedMatrixTextureShapeWidthHeight(rows, columns), w = _a[0], h = _a[1];
-    return w * h * 4;
-}
-exports.getPackedRGBAArraySizeFromMatrixShape = getPackedRGBAArraySizeFromMatrixShape;
-function getTextureConfig(
-// tslint:disable-next-line:no-any
-gl, textureHalfFloatExtension) {
-    // tslint:disable-next-line:no-any
-    var glany = gl;
-    var internalFormatFloat;
-    var internalFormatHalfFloat;
-    var internalFormatPackedHalfFloat;
-    var internalFormatPackedFloat;
-    var textureFormatFloat;
-    var downloadTextureFormat;
-    var downloadUnpackNumChannels;
-    var defaultNumChannels;
-    var textureTypeHalfFloat;
-    var textureTypeFloat;
-    if (environment_1.env().getNumber('WEBGL_VERSION') === 2) {
-        internalFormatFloat = glany.R32F;
-        internalFormatHalfFloat = glany.R16F;
-        internalFormatPackedHalfFloat = glany.RGBA16F;
-        internalFormatPackedFloat = glany.RGBA32F;
-        textureFormatFloat = glany.RED;
-        downloadUnpackNumChannels = 4;
-        defaultNumChannels = 1;
-        textureTypeHalfFloat = glany.HALF_FLOAT;
-        textureTypeFloat = glany.FLOAT;
-    }
-    else {
-        internalFormatFloat = gl.RGBA;
-        internalFormatHalfFloat = gl.RGBA;
-        internalFormatPackedHalfFloat = gl.RGBA;
-        internalFormatPackedFloat = glany.RGBA;
-        textureFormatFloat = gl.RGBA;
-        downloadUnpackNumChannels = 4;
-        defaultNumChannels = 4;
-        textureTypeHalfFloat = textureHalfFloatExtension != null ?
-            textureHalfFloatExtension.HALF_FLOAT_OES :
-            null;
-        textureTypeFloat = gl.FLOAT;
-    }
-    downloadTextureFormat = gl.RGBA;
-    return {
-        internalFormatFloat: internalFormatFloat,
-        internalFormatHalfFloat: internalFormatHalfFloat,
-        internalFormatPackedHalfFloat: internalFormatPackedHalfFloat,
-        internalFormatPackedFloat: internalFormatPackedFloat,
-        textureFormatFloat: textureFormatFloat,
-        downloadTextureFormat: downloadTextureFormat,
-        downloadUnpackNumChannels: downloadUnpackNumChannels,
-        defaultNumChannels: defaultNumChannels,
-        textureTypeHalfFloat: textureTypeHalfFloat,
-        textureTypeFloat: textureTypeFloat
-    };
-}
-exports.getTextureConfig = getTextureConfig;
-
-},{"../../environment":"node_modules/@tensorflow/tfjs-core/dist/environment.js","../../util":"node_modules/@tensorflow/tfjs-core/dist/util.js"}],"index.js":[function(require,module,exports) {
+},{"@tensorflow/tfjs-converter":"node_modules/@tensorflow/tfjs-converter/dist/tf-converter.esm.js","@tensorflow/tfjs-core":"node_modules/@tensorflow/tfjs-core/dist/tf-core.esm.js"}],"index.js":[function(require,module,exports) {
 "use strict";
 
 var _slicedToArray2 = _interopRequireDefault(require("@babel/runtime/helpers/slicedToArray"));
@@ -27730,14 +26686,14 @@ var _asyncToGenerator2 = _interopRequireDefault(require("@babel/runtime/helpers/
 
 var toxicity = _interopRequireWildcard(require("@tensorflow-models/toxicity"));
 
-var _tex_util = require("@tensorflow/tfjs-core/dist/backends/webgl/tex_util");
-
 function _getRequireWildcardCache() { if (typeof WeakMap !== "function") return null; var cache = new WeakMap(); _getRequireWildcardCache = function () { return cache; }; return cache; }
 
 function _interopRequireWildcard(obj) { if (obj && obj.__esModule) { return obj; } if (obj === null || typeof obj !== "object" && typeof obj !== "function") { return { default: obj }; } var cache = _getRequireWildcardCache(); if (cache && cache.has(obj)) { return cache.get(obj); } var newObj = {}; var hasPropertyDescriptor = Object.defineProperty && Object.getOwnPropertyDescriptor; for (var key in obj) { if (Object.prototype.hasOwnProperty.call(obj, key)) { var desc = hasPropertyDescriptor ? Object.getOwnPropertyDescriptor(obj, key) : null; if (desc && (desc.get || desc.set)) { Object.defineProperty(newObj, key, desc); } else { newObj[key] = obj[key]; } } } newObj.default = obj; if (cache) { cache.set(obj, newObj); } return newObj; }
 
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
+var allPredictions = [];
+var model, labels;
 var firebaseConfig = {
   apiKey: "AIzaSyAyzyjiwdC9m7d9ar7H64aO7nMtn11cmSM",
   authDomain: "news-toxicity.firebaseapp.com",
@@ -27750,8 +26706,86 @@ var firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 var database = firebase.database();
 
+var predict =
+/*#__PURE__*/
+function () {
+  var _ref = (0, _asyncToGenerator2.default)(
+  /*#__PURE__*/
+  _regenerator.default.mark(function _callee() {
+    return _regenerator.default.wrap(function _callee$(_context) {
+      while (1) {
+        switch (_context.prev = _context.next) {
+          case 0:
+            _context.next = 2;
+            return toxicity.load();
+
+          case 2:
+            model = _context.sent;
+            labels = model.model.outputNodes.map(function (d) {
+              return d.split('/')[0];
+            });
+            document.querySelector('#classify-new-text').addEventListener('click', function (e) {
+              console.log('clicked');
+              var text = document.querySelector('#classify-new-text-input').value;
+              var predictions = classify([text]).then(function (d) {
+                // sendData(d[0]);
+                allPredictions.push(d);
+              });
+            });
+
+          case 5:
+          case "end":
+            return _context.stop();
+        }
+      }
+    }, _callee);
+  }));
+
+  return function predict() {
+    return _ref.apply(this, arguments);
+  };
+}();
+
+var classify =
+/*#__PURE__*/
+function () {
+  var _ref2 = (0, _asyncToGenerator2.default)(
+  /*#__PURE__*/
+  _regenerator.default.mark(function _callee2(inputs) {
+    var results;
+    return _regenerator.default.wrap(function _callee2$(_context2) {
+      while (1) {
+        switch (_context2.prev = _context2.next) {
+          case 0:
+            _context2.next = 2;
+            return model.classify(inputs);
+
+          case 2:
+            results = _context2.sent;
+            return _context2.abrupt("return", inputs.map(function (text, index) {
+              var obj = {
+                'text': text
+              };
+              results.forEach(function (classification) {
+                obj[classification.label] = classification.results[index].match;
+              });
+              return obj;
+            }));
+
+          case 4:
+          case "end":
+            return _context2.stop();
+        }
+      }
+    }, _callee2);
+  }));
+
+  return function classify(_x) {
+    return _ref2.apply(this, arguments);
+  };
+}();
+
 function sendData(userData) {
-  console.log(userData);
   var db = database.ref('predictions');
   var data = {
     text: userData.text,
@@ -27778,120 +26812,24 @@ function sendData(userData) {
   }
 }
 
-var allPredictions = [];
-var model, labels;
-
-var classify =
-/*#__PURE__*/
-function () {
-  var _ref = (0, _asyncToGenerator2.default)(
-  /*#__PURE__*/
-  _regenerator.default.mark(function _callee(inputs) {
-    var results;
-    return _regenerator.default.wrap(function _callee$(_context) {
-      while (1) {
-        switch (_context.prev = _context.next) {
-          case 0:
-            _context.next = 2;
-            return model.classify(inputs);
-
-          case 2:
-            results = _context.sent;
-            return _context.abrupt("return", inputs.map(function (d, i) {
-              var obj = {
-                'text': d
-              };
-              results.forEach(function (classification) {
-                obj[classification.label] = classification.results[i].match;
-              });
-              return obj;
-            }));
-
-          case 4:
-          case "end":
-            return _context.stop();
-        }
-      }
-    }, _callee);
-  }));
-
-  return function classify(_x) {
-    return _ref.apply(this, arguments);
-  };
-}();
-
-var addPredictions = function addPredictions(predictions) {
-  var tableWrapper = document.querySelector('#table-wrapper');
-  predictions.forEach(function (d) {
-    var predictionDom = "<div class=\"row\">\n      <div class=\"text\">".concat(d.text, "</div>\n      ").concat(labels.map(function (label) {
-      return "<div class=\"".concat('label' + (d[label] === true ? ' positive' : ''), "\">").concat(d[label], "</div>");
-    }).join(''), "\n    </div>");
-    tableWrapper.insertAdjacentHTML('beforeEnd', predictionDom);
-  });
-};
-
 var displayPredictions = function displayPredictions() {
   var predictions = allPredictions;
   document.querySelector('#display-predictions-btn').addEventListener('click', function (e) {
-    console.log('hello');
+    console.log('displaying predictions ----');
     predictions.forEach(function (prediction) {
-      return test(prediction[0]);
+      for (var _i = 0, _Object$entries = Object.entries(prediction[0]); _i < _Object$entries.length; _i++) {
+        var _Object$entries$_i = (0, _slicedToArray2.default)(_Object$entries[_i], 2),
+            key = _Object$entries$_i[0],
+            value = _Object$entries$_i[1];
+
+        console.log(key, value);
+      }
     });
   });
 };
 
-var test = function test(predictions) {
-  for (var _i = 0, _Object$entries = Object.entries(predictions); _i < _Object$entries.length; _i++) {
-    var _Object$entries$_i = (0, _slicedToArray2.default)(_Object$entries[_i], 2),
-        key = _Object$entries$_i[0],
-        value = _Object$entries$_i[1];
-
-    console.log(key, value);
-  }
-};
-
-var predict =
-/*#__PURE__*/
-function () {
-  var _ref2 = (0, _asyncToGenerator2.default)(
-  /*#__PURE__*/
-  _regenerator.default.mark(function _callee2() {
-    return _regenerator.default.wrap(function _callee2$(_context2) {
-      while (1) {
-        switch (_context2.prev = _context2.next) {
-          case 0:
-            _context2.next = 2;
-            return toxicity.load();
-
-          case 2:
-            model = _context2.sent;
-            labels = model.model.outputNodes.map(function (d) {
-              return d.split('/')[0];
-            });
-            document.querySelector('#classify-new-text').addEventListener('click', function (e) {
-              console.log('hi');
-              var text = document.querySelector('#classify-new-text-input').value;
-              var predictions = classify([text]).then(function (d) {
-                sendData(d[0]);
-                allPredictions.push(d);
-              }); // displayPredictions(allPredictions)
-            });
-
-          case 5:
-          case "end":
-            return _context2.stop();
-        }
-      }
-    }, _callee2);
-  }));
-
-  return function predict() {
-    return _ref2.apply(this, arguments);
-  };
-}();
-
 predict();
 displayPredictions();
 sendData();
-},{"@babel/runtime/helpers/slicedToArray":"node_modules/@babel/runtime/helpers/slicedToArray.js","@babel/runtime/regenerator":"node_modules/@babel/runtime/regenerator/index.js","@babel/runtime/helpers/asyncToGenerator":"node_modules/@babel/runtime/helpers/asyncToGenerator.js","@tensorflow-models/toxicity":"node_modules/@tensorflow-models/toxicity/dist/toxicity.esm.js","@tensorflow/tfjs-core/dist/backends/webgl/tex_util":"node_modules/@tensorflow/tfjs-core/dist/backends/webgl/tex_util.js"}]},{},["index.js"], null)
+},{"@babel/runtime/helpers/slicedToArray":"node_modules/@babel/runtime/helpers/slicedToArray.js","@babel/runtime/regenerator":"node_modules/@babel/runtime/regenerator/index.js","@babel/runtime/helpers/asyncToGenerator":"node_modules/@babel/runtime/helpers/asyncToGenerator.js","@tensorflow-models/toxicity":"node_modules/@tensorflow-models/toxicity/dist/toxicity.esm.js"}]},{},["index.js"], null)
 //# sourceMappingURL=/news-toxicity-original.e31bb0bc.js.map
